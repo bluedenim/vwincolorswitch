@@ -1,0 +1,1 @@
+cscript RunPowerShellWithArgs.vbs RestartExplorer.ps1
