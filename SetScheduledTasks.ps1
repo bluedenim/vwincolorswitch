@@ -53,9 +53,10 @@ function Set-ScheduledTaskWithTrigger {
     # This is the only way to set the Settings of a task. Attempts to use -Settings <settings> with 
     # New-ScheduledTask just fails silently.
     $task = Get-ScheduledTask -TaskName $taskName
-    $task.Settings.ExecutionTimeLimit = "PT1H"  # ISO 8601 format for 1 hour
+    $task.Settings.ExecutionTimeLimit = "PT5M"  # ISO 8601 format for 5 minutes
     $task.Settings.AllowHardTerminate = $true
-    $task.Settings.StartWhenAvailable = $true
+    $task.Settings.StartWhenAvailable = $false
+    $task.Settings.MultipleInstances = "IgnoreNew"
     $task | Set-ScheduledTask
 
     Write-Log "Task '$taskName' created/updated successfully." -logFile $logFile
