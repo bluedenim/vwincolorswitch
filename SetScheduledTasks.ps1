@@ -31,29 +31,29 @@ function Set-ScheduledTaskWithTrigger {
     $scriptPath = Join-Path -Path $here -ChildPath "RunPowerShellWithArgs.vbs"
     $fullArgs = "`"$scriptPath`" `"$ps1ScriptName`" $scriptArgs"   
 
+    $action = New-ScheduledTaskAction -Execute "wscript.exe" -Argument $fullArgs
+    $principal = New-ScheduledTaskPrincipal -UserId "$env:USERNAME" -LogonType Interactive
+
     # Check if task exists
     $task = Get-ScheduledTask -TaskName $taskName -TaskPath $taskPath -ErrorAction SilentlyContinue    
     if (-not $task) {
         Write-Log "Task '$taskName' not found. Creating..." -logFile $logFile
 
-        $action = New-ScheduledTaskAction -Execute "wscript.exe" -Argument $fullArgs
-        $principal = New-ScheduledTaskPrincipal -UserId "$env:USERNAME" -LogonType Interactive
         $task = New-ScheduledTask -Action $action -Trigger $trigger -Principal $principal 
     } else {
-        Write-Log "Task '$taskName' already exists. Updating action..." -logFile $logFile
-        $action = New-ScheduledTaskAction -Execute "wscript.exe" -Argument $fullArgs
-        $principal = New-ScheduledTaskPrincipal -UserId "$env:USERNAME" -LogonType Interactive
+        Write-Log "Task '$taskName' already exists. Unregistering in order to register with new settings..." -logFile $logFile
 
         Unregister-ScheduledTask -TaskName $taskName -Confirm:$false
     }
 
     # Register-ScheduledTask -TaskName $taskName -InputObject $task -Force
+    Write-Log "Registering task '$taskName'..." -logFile $logFile
     Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Principal $principal
 
-    # This is the only way to set the Settings of a task. Attempts to use -Settings <settings> with 
-    # New-ScheduledTask just fails silently.
+    # This is the only way to set the Settings of a task. Attempts to use
+    # -Settings <settings> with New-ScheduledTask just fails silently.
     $task = Get-ScheduledTask -TaskName $taskName
-    $task.Settings.ExecutionTimeLimit = "PT5M"  # ISO 8601 format for 5 minutes
+    $task.Settings.ExecutionTimeLimit = "PT5M"  # ISO 8601 for 5 minutes
     $task.Settings.AllowHardTerminate = $true
     $task.Settings.StartWhenAvailable = $false
     $task.Settings.MultipleInstances = "IgnoreNew"
@@ -106,7 +106,7 @@ function Set-LogonTask {
     Set-ScheduledTaskWithTrigger -taskName $taskName -ps1ScriptName $ps1ScriptName -trigger $trigger -logFile $logFile -scriptArgs $scriptArgs
 }
 
-# Try reading from cache
+# Try reading from cache. If not found or too old, call API and save to cache.
 $cachedTimes = Get-SunTimesFromCache -maxAgeDays 2 -logFile $logFile -appName $appName
 
 if ($cachedTimes) {
@@ -120,25 +120,36 @@ if ($cachedTimes) {
     Save-SunTimesToCache -sunrise $sunrise -sunset $sunset -latitude $lat -longitude $lng -appName $appName
 }
 
+# Adjust the times so that they will be in the future
 Write-Log "Sunrise: $sunrise. Sunset: $sunset" -logFile $logFile 
 $Now = Get-Date
 $sunriseFuture = Update-DateTimeToFuture $sunrise $Now
 $sunsetFuture = Update-DateTimeToFuture $sunset $Now
 Write-Log "Adjusted for future: Sunrise: $sunriseFuture. Sunset: $sunsetFuture" -logFile $logFile
 
+# Scheduled a task to update the sunrise/sunset times daily at midnight 
+# (running this script)
 Write-Log "Scheduling tasks..." -logFile $logFile
 $timeSyncAt = [DateTime]::Today.AddHours(0).AddMinutes(0)
 $timeSyncAt = Update-DateTimeToFuture $timeSyncAt $Now
 Set-ScheduledDailyTask "$appName Sun Times Update" "SetScheduledTasks.ps1" $timeSyncAt -logFile $logFile
+
+# Schedule at logon to set the theme according to current time so that user 
+# sees correct theme immediately.
 Set-LogonTask "$appName Theme set on logon" "SetThemeNow.ps1" -logFile $logFile -scriptArgs "-restartExplorer True"
 
-# Sunrise and Sunset times to switch theme to light/dark
+# Schedule at sunrise and sunset times to switch theme to light/dark. 
+# Supposedly this is the most efficient way to do it since it doesn't 
+# require polling periodically. However, these empirically don't get
+# run reliably.
 Set-ScheduledDailyTask "$appName Light" "SetThemeLight.ps1" $sunriseFuture -logFile $logFile -scriptArgs "-light true -restartExplorer True"
 Set-ScheduledDailyTask "$appName Dark" "SetThemeLight.ps1" $sunsetFuture -logFile $logFile -scriptArgs "-light false -restartExplorer True"
 
-# Empirical tests show that the tasks scheduled at sunrise and sunset times above don't get
-# run reliably. Therefore, the following hourly task is added as a backup.
-# Current hour but at 0:30. If that is earlier than now, then advance to next hour
+# Since the tasks scheduled at sunrise and sunset times above don't get run
+# reliably, the following hourly task is added as a backup. These do seem to
+# run reliably.
+# Schedule at 0:30 of each hour. If that is earlier than now, then advance
+# to next hour.
 $timeSyncAt = Get-Date -Year $Now.Year -Month $Now.Month -Day $Now.Day -Hour $Now.Hour -Minute 30 -Second 0
 if ($timeSyncAt -le $Now) {
     $timeSyncAt = $timeSyncAt.AddHours(1)
