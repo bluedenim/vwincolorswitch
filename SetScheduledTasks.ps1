@@ -157,4 +157,4 @@ if ($timeSyncAt -le $Now) {
 Set-ScheduledHourlyTask "$appName Hourly Theme Sync" "SetThemeNow.ps1" $timeSyncAt -logFile $logFile -scriptArgs "-restartExplorer True"
 
 # Finally, sync the theme now instead of waiting for any scheduled tasks.
-& "$here\SetThemeNow.ps1"
+& "$here\SetThemeNow.ps1" -restartExplorer True
