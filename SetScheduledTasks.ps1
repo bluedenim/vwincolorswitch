@@ -8,7 +8,6 @@ param (
 )
 
 $appName = "vwincolorswitch"
-$sunTimesUrl = "https://api.sunrise-sunset.org/json?lat=$lat&lng=$lng&formatted=0&tzid=utc"
 
 $here = $PSScriptRoot
 
@@ -113,10 +112,10 @@ if ($cachedTimes) {
     $sunrise = [DateTime]::Parse($cachedTimes.sunrise)
     $sunset  = [DateTime]::Parse($cachedTimes.sunset)
 } else {
-    Write-Log "Fetching sunrise/sunset times from API..." -logFile $logFile 
-    $response = Invoke-RestMethod -Uri $sunTimesUrl
-    $sunrise = [DateTime]::Parse($response.results.sunrise)
-    $sunset  = [DateTime]::Parse($response.results.sunset)
+    $sunTimes = Get-SunTimes -latitude $lat -longitude $lng -logFile $logFile -appName $appName
+    $sunrise = $sunTimes.sunrise
+    $sunset  = $sunTimes.sunset
+
     Save-SunTimesToCache -sunrise $sunrise -sunset $sunset -latitude $lat -longitude $lng -appName $appName
 }
 

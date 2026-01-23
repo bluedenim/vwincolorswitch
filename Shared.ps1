@@ -41,24 +41,57 @@ function Get-SunTimesFromCache {
         [int]$maxAgeDays = 1,
         [string]$appname = $defaultAppName
     )
-    $appDataDir = Get-AppDataDir $appname
-    $cacheFile = Join-Path $appDataDir $cacheFileName
-
-    if (Test-Path $cacheFile) {
-        try {
-            $cached = Get-Content $cacheFile | ConvertFrom-Json
-            $cachedDateTime = [DateTime]::Parse($cached.timestamp)
-            $age = (Get-Date) - $cachedDateTime
-            if ($age.TotalDays -lt $maxAgeDays) {
-                Write-Log "Using cached sunrise/sunset data from $cachedDateTime" -logFile $logFile
-                return $cached
-            } else {
-                Write-Log "Cached data is older than $maxAgeDays day(s)." -logFile $logFile
-            }
-        } catch {
+    $cached = Get-CachedData -logFile $logFile -appname $appname
+    if ($cached) {
+        $cachedDateTime = [DateTime]::Parse($cached.timestamp)
+        $age = (Get-Date) - $cachedDateTime
+        if ($age.TotalDays -lt $maxAgeDays) {
+            Write-Log "Using cached sunrise/sunset data from $cachedDateTime" -logFile $logFile
+            return $cached
+        } else {
+            Write-Log "Cached data is older than $maxAgeDays day(s). Ignoring." -logFile $logFile
         }
     }
     return $null
+}
+
+function Get-CachedData {
+    param (
+        [string]$logFile,
+        [string]$appname = $defaultAppName
+    )
+    $appDataDir = Get-AppDataDir $appname
+    $cacheFile = Join-Path $appDataDir $cacheFileName
+    if (Test-Path $cacheFile) {
+        try {
+            $cached = Get-Content $cacheFile | ConvertFrom-Json
+            return $cached
+        } catch {
+            Write-Log "Error reading cache file: $_" -logFile $logFile
+        }
+    } else {
+        Write-Log "Cache file not found: $cacheFile" -logFile $logFile
+    }
+    return $null        
+}
+
+function Get-SunTimes {
+    param (
+        [string]$latitude,
+        [string]$longitude,
+        [string]$logFile,
+        [string]$appname = $defaultAppName
+    )
+    $sunTimesUrl = "https://api.sunrise-sunset.org/json?lat=$latitude&lng=$longitude&formatted=0&tzid=utc"
+    Write-Log "Fetching sunrise/sunset times from $sunTimesUrl..." -logFile $logFile
+    $response = Invoke-RestMethod -Uri $sunTimesUrl
+    $sunrise = [DateTime]::Parse($response.results.sunrise)
+    $sunset  = [DateTime]::Parse($response.results.sunset)
+
+    return @{
+        sunrise = $sunrise
+        sunset  = $sunset
+    }
 }
 
 function Save-SunTimesToCache {
@@ -79,6 +112,9 @@ function Save-SunTimesToCache {
     }
     $appDataDir = Get-AppDataDir $appname
     $cacheFile = Join-Path $appDataDir $cacheFileName
+
+    Write-Log "Saving sunrise/sunset times to cache $cacheFile..." -logFile $logFile
+
     $data | ConvertTo-Json | Set-Content $cacheFile -Force
 }
 
