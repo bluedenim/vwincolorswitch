@@ -55,7 +55,9 @@ There are also some scripts to immediately switch to light or dark for situation
 
 To avoid hitting the Web endpoint too often, the sunrise and sunset times will be cached in a JSON file with a date of when the data was acquired. Every few days, the Web endpoint will be called to get an updated set of times since these times vary throughout the calendar year.
 
-## Log Files
+## Tinkering (Advanced Topics)
+
+### Log Files
 
 If you want to debug unexpected behavior, these log files are available under `%LOCALAPPDATA%\vwincolorswitch`:
 
@@ -70,11 +72,37 @@ If you want to debug unexpected behavior, these log files are available under `%
     "timestamp":  "2026-01-30T21:22:24.6617829-08:00",
     "sunrise":  "2026-01-31T07:11:10.0000000-08:00",
     "longitude":  "-122.0857432",
-    "latitude":  "37.6945519"
+    "latitude":  "37.6945519",
+    "static": false
   }
   ```
 
-  ## Reset
+### Disabling sunrise/sunset time updates
+
+If you want to just use a set sunrise and sunset time permanently (or choose to **control these manually**):
+
+- Modify `sun_times.json` to add/set the `static` property to `true`:
+  ```
+  {
+    ...
+    "sunrise":  "2026-01-31T07:00:00.0000000-08:00",
+    "sunset":  "2026-01-31T18:00:00.0000000-08:00",
+    ...
+    "static": true
+  }
+  ```
+- Edit the `sunrise` and `sunset` times to when you want to change colors to light and dark, respectively. Note that these values are in ISO-8601 date-time-with-UTC-offset format.
+
+In the example above, the scripts will change color to light at 07:00 PST and to dark at 18:00 PST.
+
+#### Daylight-Savings
+During daylight savings times where they are applicable (America/Los_Angeles in this example), the times will be _effectively_ 08:00 PDT and 19:00 PDT, respectively (because the values are still be 8 hours behind UTC), _unless_ the times are updated to reflect the correct PDT times (i.e. change the UTC offset to `-07:00`).
+
+Therefore, if you plan to manage the start/end times manually and are in an area where daylight-savings time is in effect, then you should modify these times twice annually when switching from standard to daylight times and vice versa.
+
+💡 An alternative is to find a pair of times that you can work with all year long across the two standards.
+
+## Reset
 
   If things get to a stuck state, here's how to reset everything:
   * Delete everything under `%LOCALAPPDATA%\vwincolorswitch`.
