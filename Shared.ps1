@@ -43,6 +43,10 @@ function Get-SunTimesFromCache {
     )
     $cached = Get-CachedData -logFile $logFile -appname $appname
     if ($cached) {
+        if ($cached.static -eq $true) {
+            Write-Log "Using static cached sunrise/sunset data." -logFile $logFile
+            return $cached
+        }
         $cachedDateTime = [DateTime]::Parse($cached.timestamp)
         $age = (Get-Date) - $cachedDateTime
         if ($age.TotalDays -lt $maxAgeDays) {
@@ -65,6 +69,20 @@ function Get-CachedData {
     if (Test-Path $cacheFile) {
         try {
             $cached = Get-Content $cacheFile | ConvertFrom-Json
+
+            # Check for the optional fields and set defaults if missing
+            $static = $false
+            if (-not $cached.static) {
+                $cached | Add-Member -MemberType NoteProperty -Name "static" -Value $false
+            }
+            $value = $cached.static
+            # Try to interpret as boolean
+            switch -Regex ($value.ToString().Trim()) {
+                '^(true|1)$' { $static = $true }
+                '^(false|0)$' { $static = $false }
+                default { $static = $false } # fallback
+            }
+            $cached.static = $static
             return $cached
         } catch {
             Write-Log "Error reading cache file: $_" -logFile $logFile
@@ -109,6 +127,7 @@ function Save-SunTimesToCache {
         timestamp = (Get-Date).ToString("o")
         latitude  = $latitude
         longitude = $longitude
+        static = $false
     }
     $appDataDir = Get-AppDataDir $appname
     $cacheFile = Join-Path $appDataDir $cacheFileName
