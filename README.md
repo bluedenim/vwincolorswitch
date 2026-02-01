@@ -77,6 +77,11 @@ If you want to debug unexpected behavior, these log files are available under `%
   }
   ```
 
+  - `sunrise` and `sunset` -- local times when the colors will switch to light and dark settings, respectively. The values are in ISO-8601 date-time-with-offset format.
+  - `timestamp` -- the date/time when this JSON file was last updated.
+  - `longitude` and `latitude` -- the location at which the sunrise and sunset times are applicable.
+  - `static` -- whether the sunrise and sunset times will be periodically updated automatically throughout the year. If `false` (default), then the times will be periodically updated automatically.
+
 ### Disabling sunrise/sunset time updates
 
 If you want to just use a set sunrise and sunset time permanently (or choose to **control these manually**):
