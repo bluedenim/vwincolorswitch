@@ -8,6 +8,11 @@ Some background:
   > Some (not all) themes include switching colors between light and dark depending on the time.
   > These scripts are useful if you use a theme that **does not** already update the color setting automatically and you want that feature.
 
+
+  <img width="776" height="642" alt="notepad_light_dark" src="https://github.com/user-attachments/assets/88fd56e8-1645-41e2-94e2-482fee1ae477" />
+
+
+
 These scripts will allow you to set up scheduled tasks to switch the **system 
 color mode** between "light" and "dark" depending on the time of day.
 
